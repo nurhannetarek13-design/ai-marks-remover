@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>AI Marks — Private Cleaner</title>
+<style>
+:root{color-scheme:dark;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+*{box-sizing:border-box}body{margin:0;background:#0b0c10;color:#f1f1f3;padding:34px 18px 80px}
+main{max-width:520px;margin:auto}small,.muted{color:#a2a2b0}h1{font-size:30px;letter-spacing:-.6px;margin:12px 0}p{line-height:1.8}
+.panel{border:1px solid #32343b;background:#16171d;border-radius:19px;padding:20px;margin-top:18px}
+.drop{display:block;padding:24px 16px;border:1px dashed #717582;border-radius:13px;text-align:center;cursor:pointer}
+input[type=file]{display:none}textarea{width:100%;min-height:150px;resize:vertical;background:#101116;color:white;border:1px solid #555965;border-radius:10px;padding:13px;font:inherit;direction:auto}
+button,.action{appearance:none;border:none;border-radius:12px;background:#d5e2ff;color:#151923;padding:14px 17px;font:inherit;font-weight:650;cursor:pointer;display:inline-block;text-decoration:none;margin-top:14px}
+button:disabled{opacity:.4;cursor:not-allowed}
+.secondary{background:#333640;color:#fff}#download{display:none}#status{white-space:pre-wrap;line-height:1.7;color:#cbd1e3}
+mark{background:#4c3d15;color:#ffe4a3;border-radius:4px;padding:2px 5px}
+</style></head>
+<body><main>
+<small>AI MARKS / LOCAL EDITION</small>
+<h1>تنظيف خصوصية الملفات</h1>
+<p>نسخة مجانية تعمل داخل متصفح الآيفون. <strong>لا يتم إرسال ملفك إلى أي سيرفر.</strong> تدعم الصور والنصوص فقط، وليست بديلًا كاملًا عن خدمة remove-ai-marks الأصلية.</p>
+<section class="panel"><h2>١ — اختاري ملف</h2>
+<label class="drop" for="file">اضغطي لاختيار صورة PNG / JPG / WebP أو ملف نصّي TXT / MD</label>
+<input id="file" type="file" accept="image/png,image/jpeg,image/webp,.txt,.md,text/plain,text/markdown">
+<p id="chosen" class="muted">لم يتم اختيار ملف</p>
+<h2>أو الصقي نص</h2><textarea id="text" placeholder="الصقي النص هنا..."></textarea>
+<button id="process">فحص وتنظيف</button>
+<p id="status" role="status" aria-live="polite"></p>
+<a id="download" class="action" download>حفظ الملف النظيف</a>
+<button id="copy" class="secondary" style="display:none">نسخ النص النظيف</button>
+</section>
+<section class="panel">
+<h2>إيه اللي بيتنظّف؟</h2>
+<p>الصور: إعادة تصدير إلى PNG أو JPEG أو WebP بدون نسخ بيانات EXIF/XMP/C2PA الموجودة في حاوية الملف الأصلية. <mark>إعادة التصدير قد تغيّر جودة الصورة أو ألوانها</mark> ولا تزيل العلامات المضمّنة داخل البكسلات.</p>
+<p>النصوص: إزالة فئات معيّنة من رموز Unicode المخفية وعلامات الاتجاه. قد تكون بعض الرموز ذات معنى لغوي، فراجعي الناتج خصوصًا في اللغات المركّبة.</p>
+<p class="muted">PDF وDOCX وSynthID والعلامات الإحصائية ليست مدعومة في نسخة المتصفح. لا يُضمن محو جميع العلامات أو بيانات المنشأ.</p>
+</section>
+</main>
+<script>
+"use strict";
+const $=id=>document.getElementById(id);
+let currentUrl=null;
+let cleanedText=null;
+function reset(){
+ if(currentUrl){URL.revokeObjectURL(currentUrl);currentUrl=null;}
+ $("download").style.display="none";$("copy").style.display="none";$("status").textContent="";
+}
+$("file").addEventListener("change",()=>{
+ reset(); $("chosen").textContent=$("file").files[0]?.name||"لم يتم اختيار ملف";
+});
+$("text").addEventListener("input",()=>{if($("text").value.trim())$("file").value="";reset()});
+const marks=/[\u200B\u200C\u200D\u2060\uFEFF\u202A-\u202E\u2066-\u2069\uFE00-\uFE0F\u{E0000}-\u{E007F}]/gu;
+function clean(t){let count=0;const val=t.replace(marks,()=>{count++;return ""});return {val,count}}
+function deliver(blob,name){
+ currentUrl=URL.createObjectURL(blob);$("download").href=currentUrl;
+ $("download").download=name;$("download").style.display="inline-block";
+}
+async function imageClean(file){
+ if(!["image/png","image/jpeg","image/webp"].includes(file.type))throw Error("صيغة الصورة غير مدعومة");
+ const image=await createImageBitmap(file);
+ if(image.width*image.height>32000000){image.close();throw Error("الصورة كبيرة جدًا للمعالجة على الموبايل")}
+ const canvas=document.createElement("canvas");canvas.width=image.width;canvas.height=image.height;
+ const ctx=canvas.getContext("2d",{alpha:true});ctx.drawImage(image,0,0);image.close();
+ const type=file.type==="image/jpeg"?"image/jpeg":file.type==="image/webp"?"image/webp":"image/png";
+ const blob=await new Promise((resolve,reject)=>canvas.toBlob(b=>b?resolve(b):reject(Error("فشل تصدير الصورة")),type,type==="image/png"?undefined:0.95));
+ const ext=blob.type==="image/jpeg"?"jpg":blob.type==="image/webp"?"webp":"png";
+ deliver(blob,"cleaned-"+file.name.replace(/\.[^.]+$/,"")+"."+ext);
+ $("status").textContent="تمت إعادة تصدير الصورة محليًا ("+image.width+"×"+image.height+").\nتم فصل بيانات الملف الأصلية عند إنشاء الصورة الجديدة. العلامات داخل البكسلات لا يمكن تأكيد إزالتها.";
+}
+$("process").addEventListener("click",async()=>{
+ reset();$("process").disabled=true;
+ try{
+ const file=$("file").files[0];
+ if(file){
+ if(file.size>25000000)throw Error("الحد الأقصى للملف 25 ميجابايت");
+ if(file.type.startsWith("image/"))await imageClean(file);
+ else if(/\.(txt|md)$/i.test(file.name)||file.type==="text/plain"){
+ const raw=await file.text();const {val,count}=clean(raw); cleanedText=val;
+ const ext=file.name.toLowerCase().endsWith(".md")?".md":".txt";
+ deliver(new Blob([val],{type:"text/plain;charset=utf-8"}),"cleaned-"+file.name.replace(/\.[^.]+$/,"")+ext);
+ $("status").textContent="تم إزالة "+count+" رمزًا مخفيًا. راجعي النص بعد التنظيف.";
+ $("copy").style.display="inline-block";
+ }else throw Error("صيغة الملف غير مدعومة في نسخة المتصفح");
+ }else if($("text").value){
+ const {val,count}=clean($("text").value);cleanedText=val;
+ deliver(new Blob([val],{type:"text/plain;charset=utf-8"}),"cleaned-text.txt");
+ $("status").textContent="تم إزالة "+count+" رمزًا مخفيًا. راجعي النص بعد التنظيف.";
+ $("copy").style.display="inline-block";
+ }else throw Error("اختاري ملف أو اكتبي نصًا أولًا");
+ }catch(e){$("status").textContent="لم يكتمل التنظيف: "+e.message}
+ finally{$("process").disabled=false}
+});
+$("copy").addEventListener("click",async()=>{
+ if(cleanedText===null)return;
+ try{await navigator.clipboard.writeText(cleanedText);$("status").textContent+="\nاتنسخ النص."}
+ catch{$("status").textContent+="\nالنسخ غير متاح، احفظي ملف النص."}
+});
+</script></body></html>
