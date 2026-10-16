@@ -49,5 +49,18 @@ jobs:
             echo "No changes to commit"
           else
             git commit -m "Publish experimental client-side pixel processing app"
-            git push
+            # Remote main may change while npm builds; replay only our generated commit.
+            # Never force-push or overwrite newer commits.
+            for attempt in 1 2 3 4 5; do
+              git fetch origin main
+              git rebase origin/main
+              if git push origin HEAD:main; then
+                echo "Published built assets successfully"
+                exit 0
+              fi
+              echo "Concurrent update detected; retrying safely ($attempt/5)"
+              sleep 2
+            done
+            echo "Failed to publish after safe retries" >&2
+            exit 1
           fi
