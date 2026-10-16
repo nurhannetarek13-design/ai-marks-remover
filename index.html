@@ -19,6 +19,13 @@ mark{background:#4c3d15;color:#ffe4a3;border-radius:4px;padding:2px 5px}
 <small>AI MARKS / LOCAL EDITION</small>
 <h1>تنظيف خصوصية الملفات</h1>
 <p>نسخة مجانية تعمل داخل متصفح الآيفون. <strong>لا يتم إرسال ملفك إلى أي سيرفر.</strong> تدعم الصور والنصوص فقط، وليست بديلًا كاملًا عن خدمة remove-ai-marks الأصلية.</p>
+<section class="panel">
+<h2>اختبار العلامات المخفية داخل البكسلات</h2>
+<p>النسخة المحلية الموجودة بالأسفل تنظّف بيانات الملفات، لكنها لا تعالج علامة SynthID المدمجة في البكسلات.</p>
+<p>لتجربة معالجة البكسلات باستخدام <strong>noai-watermark</strong> افتحي الديمو المستقل على Hugging Face. العملية تتم على سيرفر خارجي، وليست داخل هذا الموقع. قد يستغرق التنفيذ وقتًا طويلًا، ولا توجد ضمانات لإزالة SynthID أو الحفاظ على كل تفاصيل الصورة.</p>
+<a class="action" href="https://huggingface.co/spaces/mertizci/noai-watermark" target="_blank" rel="noopener noreferrer">فتح تجربة Pixel Watermark</a>
+<p class="muted">لخصوصيتك: لا ترفعي صورًا حساسة إلى خدمات عامة. بعد التجربة، افحصي الصورة الناتجة بأداة موثوقة؛ الاختلاف البصري أو إعادة حفظ الصورة ليس دليلًا على إزالة علامة مخفية.</p>
+</section>
 <section class="panel"><h2>١ — اختاري ملف</h2>
 <label class="drop" for="file">اضغطي لاختيار صورة PNG / JPG / WebP أو ملف نصّي TXT / MD</label>
 <input id="file" type="file" accept="image/png,image/jpeg,image/webp,.txt,.md,text/plain,text/markdown">
