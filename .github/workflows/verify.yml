@@ -1,0 +1,47 @@
+name: Verify watermark-remover engine
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/verify.yml'
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Download upstream source
+        uses: actions/checkout@v4
+        with:
+          repository: guillaumemeyer/watermarks-remover
+          ref: v0.7.0
+          path: upstream
+          persist-credentials: false
+      - name: Run local service and test (synthetic data only)
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 upstream/service/scripts/server.py --host 127.0.0.1 --port 8765 >/tmp/remover.log 2>&1 &
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:8765/health; then break; fi
+            sleep 1
+          done
+          python3 - <<'PY'
+          import json, urllib.request, base64
+          base="http://127.0.0.1:8765"
+          with urllib.request.urlopen(base+"/capabilities",timeout=10) as r:
+              caps=json.load(r)
+          assert isinstance(caps,dict), caps
+          data="Hello\u200b world".encode()
+          for endpoint in ("inspect","clean"):
+              payload=json.dumps({"file":base64.b64encode(data).decode(),"name":"sample.txt"}).encode()
+              req=urllib.request.Request(base+"/"+endpoint,data=payload,headers={"Content-Type":"application/json"})
+              with urllib.request.urlopen(req,timeout=20) as response:
+                  obj=json.load(response)
+              assert obj.get("ok") is True, (endpoint,obj)
+              if endpoint=="clean":
+                  result=base64.b64decode(obj["cleaned"]).decode()
+                  assert "\u200b" not in result,repr(result)
+              print(endpoint,"PASS")
+          PY
